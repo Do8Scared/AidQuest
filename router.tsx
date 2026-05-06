@@ -41,6 +41,15 @@ export const routers = [
     ),
   },
   {
+    path: "/after-action",
+    name: "after-action",
+    element: (
+      <ProtectedRoute>
+        <AfterActionReport />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: "/certificate/:id",
     name: "certificate",
     element: <Certificate />,

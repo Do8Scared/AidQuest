@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 interface User {
   name: string;
@@ -16,6 +17,7 @@ interface User {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -72,14 +74,15 @@ export default function Login() {
       localStorage.setItem("aidquest_users", JSON.stringify(users));
     }
 
-    // Store current user
-    localStorage.setItem("aidquest_current_user", JSON.stringify({
+    // Use AuthContext to login
+    const userData = {
       name: formData.name || existingUser?.name,
       email: formData.email
-    }));
+    };
+    login(userData);
 
-    // Navigate to home
-    navigate("/home");
+    // Navigate to modules selection
+    navigate("/modules");
   };
 
   const handleInputChange = (field: string, value: string) => {
