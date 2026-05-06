@@ -1,29 +1,49 @@
 import Index from "./pages/Index";
+import Login from "./pages/Login";
+import Certificate from "./pages/Certificate";
 import ModuleSelect from "./pages/ModuleSelect";
 import SituationRoom from "./pages/SituationRoom";
 import AfterActionReport from "./pages/AfterActionReport";
 import NotFound from "./pages/NotFound";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 export const routers = [
   {
     path: "/",
+    name: "login",
+    element: <Login />,
+  },
+  {
+    path: "/home",
     name: "home",
-    element: <Index />,
+    element: (
+      <ProtectedRoute>
+        <Index />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/modules",
     name: "modules",
-    element: <ModuleSelect />,
+    element: (
+      <ProtectedRoute>
+        <ModuleSelect />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/situation-room/:moduleId",
     name: "situation-room",
-    element: <SituationRoom />,
+    element: (
+      <ProtectedRoute>
+        <SituationRoom />
+      </ProtectedRoute>
+    ),
   },
   {
-    path: "/after-action",
-    name: "after-action",
-    element: <AfterActionReport />,
+    path: "/certificate/:id",
+    name: "certificate",
+    element: <Certificate />,
   },
   /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
   {

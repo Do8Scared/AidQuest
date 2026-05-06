@@ -8,6 +8,7 @@ export default function CPRScene({ step, hp, lastAnswerCorrect }: SceneProps) {
   const statusText = lastAnswerCorrect === null ? "READY" : lastAnswerCorrect ? "COMPRESSED CORRECTLY" : "REASSESS";
   const heartColor = hp > 50 ? "#2ec4b6" : hp > 20 ? "#ffb703" : "#ff3352";
 
+  
   return (
     <div className="relative w-full h-full flex items-center justify-center">
       <svg viewBox="0 0 400 300" className="w-full h-full max-w-lg" style={{ maxHeight: "280px" }}>

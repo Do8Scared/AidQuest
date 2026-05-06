@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Confetti from "@/components/Confetti";
+import QRCode from "react-qr-code";
+import { useAuth } from "@/hooks/use-auth";
 
 interface ReportState {
   moduleId: string;
@@ -23,79 +25,52 @@ interface ReportState {
   passed: boolean;
 }
 
-// Simple deterministic QR code placeholder (SVG grid)
-function QRCodeDisplay({ code }: { code: string }) {
-  // Generate a pseudo-random grid from the code string
-  const size = 12;
-  const cells = Array.from({ length: size * size }, (_, i) => {
-    const charCode = code.charCodeAt(i % code.length);
-    return ((charCode * (i + 7) * 13) % 17) > 7;
-  });
-
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <div
-        className="p-4 rounded"
-        style={{ background: "#f0f4ff" }}
-      >
-        <svg width="160" height="160" viewBox={`0 0 ${size} ${size}`}>
-          {/* Quiet zone + finder patterns */}
-          {/* Top-left finder */}
-          <rect x="0" y="0" width="3" height="3" fill="#0a0e1a" />
-          <rect x="0.5" y="0.5" width="2" height="2" fill="#f0f4ff" />
-          <rect x="1" y="1" width="1" height="1" fill="#0a0e1a" />
-          {/* Top-right finder */}
-          <rect x="9" y="0" width="3" height="3" fill="#0a0e1a" />
-          <rect x="9.5" y="0.5" width="2" height="2" fill="#f0f4ff" />
-          <rect x="10" y="1" width="1" height="1" fill="#0a0e1a" />
-          {/* Bottom-left finder */}
-          <rect x="0" y="9" width="3" height="3" fill="#0a0e1a" />
-          <rect x="0.5" y="9.5" width="2" height="2" fill="#f0f4ff" />
-          <rect x="1" y="10" width="1" height="1" fill="#0a0e1a" />
-          {/* Data cells */}
-          {cells.map((on, i) => {
-            const x = i % size;
-            const y = Math.floor(i / size);
-            // Skip finder pattern areas
-            const inFinderTL = x <= 2 && y <= 2;
-            const inFinderTR = x >= 9 && y <= 2;
-            const inFinderBL = x <= 2 && y >= 9;
-            if (inFinderTL || inFinderTR || inFinderBL) return null;
-            return on ? (
-              <rect key={i} x={x} y={y} width="0.9" height="0.9" fill="#0a0e1a" />
-            ) : null;
-          })}
-        </svg>
-      </div>
-      <p className="text-xs font-mono text-muted-foreground tracking-widest">{code}</p>
-    </div>
-  );
+interface ReportState {
+  moduleId: string;
+  moduleTitle: string;
+  xp: number;
+  hp: number;
+  totalSteps: number;
+  passed: boolean;
 }
 
 export default function AfterActionReport() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const state = location.state as ReportState | null;
   const [showConfetti, setShowConfetti] = useState(false);
-  const [certCode] = useState(() => {
-    // Generate a pseudo-certification code
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    return Array.from({ length: 12 }, (_, i) => {
-      if (i === 4 || i === 8) return "-";
-      return chars[Math.floor(Math.random() * chars.length)];
-    }).join("");
-  });
+  const [certificateId, setCertificateId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!state) {
       navigate("/modules");
       return;
     }
-    if (state.passed) {
+    if (state.passed && user) {
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 4000);
+
+      // Generate certificate
+      const id = crypto.randomUUID();
+      const certificate = {
+        id,
+        userName: user.name,
+        userEmail: user.email,
+        moduleTitle: state.moduleTitle,
+        completionDate: new Date().toISOString(),
+        score: Math.round((state.hp / 100) * 100),
+        xpEarned: state.xp,
+      };
+
+      // Store certificate
+      const certificates = JSON.parse(localStorage.getItem("aidquest_certificates") || "[]");
+      certificates.push(certificate);
+      localStorage.setItem("aidquest_certificates", JSON.stringify(certificates));
+
+      setCertificateId(id);
     }
-  }, [state, navigate]);
+  }, [state, navigate, user]);
 
   if (!state) return null;
 
@@ -235,7 +210,24 @@ export default function AfterActionReport() {
               </span>
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-6">
-              <QRCodeDisplay code={certCode} />
+              {certificateId ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="p-4 rounded bg-white">
+                    <QRCode
+                      value={`${window.location.origin}/certificate/${certificateId}`}
+                      size={160}
+                      style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                    />
+                  </div>
+                  <p className="text-xs font-mono text-muted-foreground tracking-widest">
+                    {certificateId.slice(0, 8).toUpperCase()}
+                  </p>
+                </div>
+              ) : (
+                <div className="w-40 h-40 bg-muted rounded flex items-center justify-center">
+                  <QrCode className="w-8 h-8 text-muted-foreground" />
+                </div>
+              )}
               <div className="flex-1 text-center sm:text-left">
                 <p className="text-sm text-muted-foreground leading-relaxed mb-4">
                   Present this QR code at your nearest authorized Red Cross assessment

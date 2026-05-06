@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { Heart, Flame, Shield, ChevronRight, Star, Award, Users, Zap } from "lucide-react";
+import { Heart, Flame, Shield, ChevronRight, Star, Award, Users, Zap, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 const STATS = [
   { icon: Users, value: "12,400+", label: "Trained Responders" },
@@ -38,6 +39,12 @@ const MODULES_PREVIEW = [
 
 export default function Index() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
     <div className="min-h-full bg-background overflow-auto">
@@ -62,6 +69,9 @@ export default function Index() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">
+            Welcome, {user?.name}
+          </span>
           <button
             onClick={() => navigate("/modules")}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium"
@@ -77,6 +87,13 @@ export default function Index() {
             }}
           >
             Start Training
+          </button>
+          <button
+            onClick={handleLogout}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium flex items-center gap-1"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
           </button>
         </div>
       </nav>
