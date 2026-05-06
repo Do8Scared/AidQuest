@@ -161,7 +161,7 @@ export const MODULES: Module[] = [
     totalXP: 600,
     locked: false,
     icon: "Flame",
-    scenarioTitle: "BUILDING FIRE – OFFICE BLOCK, 4TH FLOOR",
+    scenarioTitle: "BUILDING FIRE - OFFICE BLOCK, 4TH FLOOR",
     scenarioSetting:
       "You're working late on the 4th floor when the fire alarm sounds and you detect smoke in the corridor. Other employees are looking to you for guidance.",
     steps: [
@@ -314,7 +314,7 @@ export const MODULES: Module[] = [
     totalXP: 700,
     locked: true,
     icon: "Bandage",
-    scenarioTitle: "SEVERE LACERATION – CONSTRUCTION SITE",
+    scenarioTitle: "SEVERE LACERATION - CONSTRUCTION SITE",
     scenarioSetting:
       "A construction worker suffers a deep laceration on their forearm from power tool equipment. There is significant bleeding. You are the site first aider.",
     steps: [
