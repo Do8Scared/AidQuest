@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { Heart, Flame, Shield, Lock, ChevronRight, Star, Zap, ArrowLeft } from "lucide-react";
+import { Heart, Flame, Shield, Lock, ChevronRight, Star, Zap, ArrowLeft, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MODULES, type Module, type Difficulty } from "@/data/modules";
+import { useAuth } from "@/hooks/use-auth";
 
 const MODULE_ICONS: Record<string, React.ElementType> = {
   Heart,
@@ -31,17 +32,24 @@ const DIFFICULTY_CONFIG: Record<Difficulty, { label: string; color: string; bg: 
   },
 };
 
-function ModuleCard({ module }: { module: Module }) {
+function ModuleCard({ module, isLocked }: { module: Module, isLocked: boolean }) {
   const navigate = useNavigate();
   const Icon = MODULE_ICONS[module.icon] || Shield;
   const diff = DIFFICULTY_CONFIG[module.difficulty];
 
+  // If it's a locked module, we shouldn't navigate
+  const handleNav = () => {
+    if (!isLocked) {
+      navigate(`/situation-room/${module.id}`);
+    }
+  }
+
   return (
     <div
-      onClick={() => !module.locked && navigate(`/situation-room/${module.id}`)}
+      onClick={handleNav}
       className={cn(
         "relative rounded border transition-all duration-200 p-6 flex flex-col gap-4",
-        module.locked
+        isLocked
           ? "module-card-locked cursor-not-allowed opacity-55"
           : "module-card-unlocked cursor-pointer hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(230,57,70,0.2),0_0_0_1px_rgba(230,57,70,0.2)]"
       )}
@@ -51,7 +59,7 @@ function ModuleCard({ module }: { module: Module }) {
       }}
     >
       {/* Lock overlay */}
-      {module.locked && (
+      {isLocked && (
         <div className="absolute inset-0 flex items-center justify-center z-10 rounded">
           <div
             className="flex flex-col items-center gap-2 rounded-lg p-4"
@@ -108,7 +116,7 @@ function ModuleCard({ module }: { module: Module }) {
           <Star className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">{module.steps.length} questions</span>
         </div>
-        {!module.locked && (
+        {!isLocked && (
           <div className="flex items-center gap-1 text-xs font-bold text-danger">
             Deploy
             <ChevronRight className="w-3.5 h-3.5" />
@@ -121,6 +129,15 @@ function ModuleCard({ module }: { module: Module }) {
 
 export default function ModuleSelect() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  
+  const completedModules = user?.user_metadata?.completed_modules || [];
+  const currentExp = user?.user_metadata?.exp || 0;
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
 
   return (
     <div className="min-h-full bg-background overflow-auto">
@@ -134,7 +151,7 @@ export default function ModuleSelect() {
         }}
       >
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/home")}
           className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -151,22 +168,40 @@ export default function ModuleSelect() {
 
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* Page Title */}
-        <div className="mb-10">
-          <p className="text-label mb-2">Training Command</p>
-          <h1 className="font-display font-extrabold text-4xl sm:text-5xl uppercase text-foreground leading-none mb-3">
-            Select Your Mission
-          </h1>
-          <p className="text-muted-foreground text-base max-w-lg">
-            Each module is a high-stakes scenario simulation. Complete a mission to unlock
-            your QR certification code.
-          </p>
+        <div className="flex justify-between items-start mb-10">
+          <div>
+            <p className="text-label mb-2">Training Command</p>
+            <h1 className="font-display font-extrabold text-4xl sm:text-5xl uppercase text-foreground leading-none mb-3">
+              Select Your Mission
+            </h1>
+            <p className="text-muted-foreground text-base max-w-lg mb-4">
+              Each module is a high-stakes scenario simulation. Complete a mission to unlock
+              your QR certification code.
+            </p>
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-warning" fill="currentColor" />
+              <span className="text-sm font-bold text-warning">{currentExp} Total XP</span>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors p-2"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
         </div>
 
         {/* Module Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {MODULES.map((module) => (
-            <ModuleCard key={module.id} module={module} />
-          ))}
+          {MODULES.map((module, index) => {
+            // First module is always unlocked. Others depend on previous completion.
+            const isFirst = index === 0;
+            const previousModuleCompleted = index > 0 ? completedModules.includes(MODULES[index - 1].id) : true;
+            const isLocked = !isFirst && !previousModuleCompleted;
+
+            return <ModuleCard key={module.id} module={module} isLocked={isLocked} />;
+          })}
         </div>
 
         {/* Certification Info */}

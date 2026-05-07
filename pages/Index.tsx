@@ -41,8 +41,8 @@ export default function Index() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/");
   };
 
@@ -70,7 +70,7 @@ export default function Index() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">
-            Welcome, {user?.name}
+            Welcome, {user?.user_metadata?.full_name || user?.email || "Responder"}
           </span>
           <button
             onClick={() => navigate("/modules")}

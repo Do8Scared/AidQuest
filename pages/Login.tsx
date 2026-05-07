@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,88 +7,102 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 
-interface User {
-  name: string;
-  email: string;
-  password: string;
-}
+const loginSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+  password: z.string().min(1, "Password is required"),
+});
+
+const registerSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Please enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      navigate("/home");
+    }
+  }, [user, navigate]);
+
+  const loginForm = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
+  const registerForm = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { name: "", email: "", password: "" },
+  });
 
-    if (!isLogin && !formData.name.trim()) {
-      newErrors.name = "Name is required";
+  const onLogin = async (data: LoginFormValues) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (error) throw error;
+      
+      toast({ title: "Welcome back!" });
+      navigate("/home");
+    } catch (error: any) {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to sign in", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsLoading(false);
     }
-
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email";
-    }
-
-    if (!formData.password) {
-      newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const onRegister = async (data: RegisterFormValues) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.name,
+          },
+        },
+      });
 
-    if (!validateForm()) return;
+      if (error) throw error;
 
-    // For now, store in localStorage
-    // In production, this would connect to Supabase or your backend
-    const users = JSON.parse(localStorage.getItem("aidquest_users") || "[]");
-    const existingUser = users.find((u: User) => u.email === formData.email);
-
-    if (isLogin) {
-      if (!existingUser || existingUser.password !== formData.password) {
-        setErrors({ general: "Invalid email or password" });
-        return;
-      }
-    } else {
-      if (existingUser) {
-        setErrors({ general: "An account with this email already exists" });
-        return;
-      }
-      users.push(formData);
-      localStorage.setItem("aidquest_users", JSON.stringify(users));
-    }
-
-    // Use AuthContext to login
-    const userData = {
-      name: formData.name || existingUser?.name,
-      email: formData.email
-    };
-    login(userData);
-
-    // Navigate to modules selection
-    navigate("/modules");
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: "" }));
+      toast({ 
+        title: "Account created!", 
+        description: "Please check your email to verify your account." 
+      });
+      setIsLogin(true);
+    } catch (error: any) {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to sign up", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -130,95 +144,149 @@ export default function Login() {
         <CardContent>
           <Tabs value={isLogin ? "login" : "register"} onValueChange={(value) => {
             setIsLogin(value === "login");
-            setErrors({});
-            setFormData({ name: "", email: "", password: "" });
+            loginForm.reset();
+            registerForm.reset();
           }}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">Sign In</TabsTrigger>
-              <TabsTrigger value="register">Sign Up</TabsTrigger>
+              <TabsTrigger value="login" disabled={isLoading}>Sign In</TabsTrigger>
+              <TabsTrigger value="register" disabled={isLoading}>Sign Up</TabsTrigger>
             </TabsList>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {errors.general && (
-                <div className="text-sm text-destructive text-center p-2 rounded bg-destructive/10">
-                  {errors.general}
-                </div>
-              )}
-
-              <TabsContent value="register" className="space-y-4 mt-0">
+            <TabsContent value="login" className="space-y-4 mt-0">
+              <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="login-email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="login-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="Enter your email"
+                      className={cn("pl-10", loginForm.formState.errors.email && "border-destructive")}
+                      {...loginForm.register("email")}
+                    />
+                  </div>
+                  {loginForm.formState.errors.email && (
+                    <p className="text-sm text-destructive">{loginForm.formState.errors.email.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="login-password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      placeholder="Enter your password"
+                      className={cn("pl-10 pr-10", loginForm.formState.errors.password && "border-destructive")}
+                      {...loginForm.register("password")}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {loginForm.formState.errors.password && (
+                    <p className="text-sm text-destructive">{loginForm.formState.errors.password.message}</p>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full btn-chamfer font-bold uppercase tracking-wider mt-2"
+                  style={{
+                    background: "hsl(var(--color-primary-500))",
+                    boxShadow: "0 0 12px rgba(230,57,70,0.3)",
+                  }}
+                >
+                  {isLoading ? "Signing in..." : "Sign In"}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="register" className="space-y-4 mt-0">
+              <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="register-name">Full Name</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
-                      id="name"
+                      id="register-name"
                       type="text"
+                      autoComplete="name"
                       placeholder="Enter your full name"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
-                      className={cn("pl-10", errors.name && "border-destructive")}
+                      className={cn("pl-10", registerForm.formState.errors.name && "border-destructive")}
+                      {...registerForm.register("name")}
                     />
                   </div>
-                  {errors.name && (
-                    <p className="text-sm text-destructive">{errors.name}</p>
+                  {registerForm.formState.errors.name && (
+                    <p className="text-sm text-destructive">{registerForm.formState.errors.name.message}</p>
                   )}
                 </div>
-              </TabsContent>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    className={cn("pl-10", errors.email && "border-destructive")}
-                  />
+                <div className="space-y-2">
+                  <Label htmlFor="register-email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="register-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="Enter your email"
+                      className={cn("pl-10", registerForm.formState.errors.email && "border-destructive")}
+                      {...registerForm.register("email")}
+                    />
+                  </div>
+                  {registerForm.formState.errors.email && (
+                    <p className="text-sm text-destructive">{registerForm.formState.errors.email.message}</p>
+                  )}
                 </div>
-                {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email}</p>
-                )}
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={formData.password}
-                    onChange={(e) => handleInputChange("password", e.target.value)}
-                    className={cn("pl-10 pr-10", errors.password && "border-destructive")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+                <div className="space-y-2">
+                  <Label htmlFor="register-password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="register-password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                      placeholder="Enter your password"
+                      className={cn("pl-10 pr-10", registerForm.formState.errors.password && "border-destructive")}
+                      {...registerForm.register("password")}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {registerForm.formState.errors.password && (
+                    <p className="text-sm text-destructive">{registerForm.formState.errors.password.message}</p>
+                  )}
                 </div>
-                {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password}</p>
-                )}
-              </div>
 
-              <Button
-                type="submit"
-                className="w-full btn-chamfer font-bold uppercase tracking-wider"
-                style={{
-                  background: "hsl(var(--color-primary-500))",
-                  boxShadow: "0 0 12px rgba(230,57,70,0.3)",
-                }}
-              >
-                {isLogin ? "Sign In" : "Create Account"}
-              </Button>
-            </form>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full btn-chamfer font-bold uppercase tracking-wider mt-2"
+                  style={{
+                    background: "hsl(var(--color-primary-500))",
+                    boxShadow: "0 0 12px rgba(230,57,70,0.3)",
+                  }}
+                >
+                  {isLoading ? "Creating Account..." : "Create Account"}
+                </Button>
+              </form>
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>

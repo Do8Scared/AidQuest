@@ -24,7 +24,6 @@ export interface Module {
   difficulty: Difficulty;
   xpReward: number;
   totalXP: number;
-  locked: boolean;
   icon: string; // lucide icon name
   scenarioTitle: string;
   scenarioSetting: string;
